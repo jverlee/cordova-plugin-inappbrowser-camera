@@ -43,6 +43,8 @@ import android.view.inputmethod.InputMethodManager;
 import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
 import android.webkit.HttpAuthHandler;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -99,6 +101,11 @@ public class InAppBrowser extends CordovaPlugin {
     private boolean clearSessionCache = false;
     private boolean hadwareBackButton = true;
     private boolean mediaPlaybackRequiresUserGesture = false;
+
+    private ValueCallback<Uri> mUploadCallback;
+    private ValueCallback<Uri[]> mUploadCallbackLollipop;
+    private final static int FILECHOOSER_REQUESTCODE = 1;
+    private final static int FILECHOOSER_REQUESTCODE_LOLLIPOP = 2;
 
     /**
      * Executes the request and returns PluginResult.
@@ -660,6 +667,51 @@ public class InAppBrowser extends CordovaPlugin {
                 inAppWebView = new WebView(cordova.getActivity());
                 inAppWebView.setLayoutParams(new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
                 inAppWebView.setId(Integer.valueOf(6));
+
+                // File Chooser Implemented ChromeClient
+                 inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView) {
+                     // For Android 5.0+
+                     public boolean onShowFileChooser (WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams)
+                     {
+                         LOG.d(LOG_TAG, "File Chooser 5.0+");
+                         // If callback exists, finish it.
+                         if(mUploadCallbackLollipop != null) {
+                             mUploadCallbackLollipop.onReceiveValue(null);
+                         }
+                         mUploadCallbackLollipop = filePathCallback;
+ 
+                         // Create File Chooser Intent
+                         Intent content = new Intent(Intent.ACTION_GET_CONTENT);
+                         content.addCategory(Intent.CATEGORY_OPENABLE);
+                         content.setType("*/*");
+ 
+                         // Run cordova startActivityForResult
+                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE_LOLLIPOP);
+                         return true;
+                     }
+ 
+                     // For Android 4.1+
+                     public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType, String capture)
+                     {
+                         LOG.d(LOG_TAG, "File Chooser 4.1+");
+                         // Call file chooser for Android 3.0+
+                         openFileChooser(uploadMsg, acceptType);
+                     }
+ 
+                     // For Android 3.0+
+                     public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType)
+                     {
+                         LOG.d(LOG_TAG, "File Chooser 3.0+");
+                         mUploadCallback = uploadMsg;
+                         Intent content = new Intent(Intent.ACTION_GET_CONTENT);
+                         content.addCategory(Intent.CATEGORY_OPENABLE);
+ 
+                         // run startActivityForResult
+                         cordova.startActivityForResult(InAppBrowser.this, Intent.createChooser(content, "Select File"), FILECHOOSER_REQUESTCODE);
+                     }
+ 
+                 });
+
                 inAppWebView.setWebChromeClient(new InAppChromeClient(thatWebView));
                 WebViewClient client = new InAppBrowserClient(thatWebView, edittext);
                 inAppWebView.setWebViewClient(client);
@@ -769,6 +821,42 @@ public class InAppBrowser extends CordovaPlugin {
         }
     }
 
+     /**
+      * Receive File Data from File Chooser
+      *
+      * @param requestCode the requested code from chromeclient
+      * @param resultCode the result code returned from android system
+      * @param intent the data from android file chooser
+      */
+     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+         // For Android >= 5.0
+         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+             LOG.d(LOG_TAG, "onActivityResult (For Android >= 5.0)");
+             // If RequestCode or Callback is Invalid
+             if(requestCode != FILECHOOSER_REQUESTCODE_LOLLIPOP || mUploadCallbackLollipop == null) {
+                 super.onActivityResult(requestCode, resultCode, intent);
+                 return;
+             }
+             mUploadCallbackLollipop.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, intent));
+             mUploadCallbackLollipop = null;
+         }
+         // For Android < 5.0
+         else {
+             LOG.d(LOG_TAG, "onActivityResult (For Android < 5.0)");
+             // If RequestCode or Callback is Invalid
+             if(requestCode != FILECHOOSER_REQUESTCODE || mUploadCallback == null) {
+                 super.onActivityResult(requestCode, resultCode, intent);
+                 return;
+             }
+ 
+             if (null == mUploadCallback) return;
+             Uri result = intent == null || resultCode != cordova.getActivity().RESULT_OK ? null : intent.getData();
+ 
+             mUploadCallback.onReceiveValue(result);
+             mUploadCallback = null;
+         }
+     }
+ 
     /**
      * The webview client receives notifications about appView
      */
