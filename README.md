@@ -19,6 +19,22 @@
 
 # cordova-plugin-inappbrowser
 
+This plugin is an update to the inappbrowser version 1.3.0 that allows the camera and photo library to be accessed
+from within a webview on iOS.
+
+Previously there was an issue that would prevent the camera from appearing on top of the webview.
+
+This update fixes is and is entirely thanks to <a href="https://github.com/apache/cordova-plugin-inappbrowser/pull/139">this pull request</a>
+submitted by <a href="https://github.com/birge">birge</a>.
+
+To use the plugin, within config.xml, replace the original call that includes the inappbrowser with this:
+
+    <plugin spec="https://github.com/jverlee/cordova-plugin-inappbrowser-camera.git" source="git" />
+
+Everything else should work the same and the original read me is below.
+
+<hr />
+
 This plugin provides a web browser view that displays when calling `cordova.InAppBrowser.open()`.
 
     var ref = cordova.InAppBrowser.open('http://apache.org', '_blank', 'location=yes');
