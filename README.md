@@ -17,9 +17,9 @@
 #         under the License.
 -->
 
-# cordova-plugin-inappbrowser
+# cordova-plugin-inappbrowser-camera
 
-This plugin is an update to the inappbrowser version 1.3.0 that allows the camera and photo library to be accessed
+This plugin is an update to cordova-plugin-inappbrowser version 1.3.0 that allows the camera and photo library to be accessed
 from within a webview on iOS.
 
 Previously there was an issue that would prevent the camera from appearing on top of the webview.
